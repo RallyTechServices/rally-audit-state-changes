@@ -2,6 +2,9 @@
 
 ## Development Notes
 
+* limited to current project and children
+* Will not find things that are modified in some other project and then moved in (except for mods after the move)
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 
