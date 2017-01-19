@@ -3,11 +3,11 @@
 <head>
     <title>Audit Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 19 2017 09:27:26 GMT-0500 (EST) -->
+    <!--  Build Date: Thu Jan 19 2017 10:19:02 GMT-0500 (EST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 19 2017 09:27:26 GMT-0500 (EST)";
-        var CHECKSUM = 4146615582;
+        var APP_BUILD_DATE = "Thu Jan 19 2017 10:19:02 GMT-0500 (EST)";
+        var CHECKSUM = 4143737015;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -150,19 +150,40 @@ Ext.define("TSAuditReport", {
     
     config: {
         defaultSettings: {
+            period : "7 days",
             type : "Story",
             field : "ScheduleState"
         }
     },
     
     getSettingsFields: function() {
+
+        var periodStore = new Ext.data.ArrayStore({
+            fields: ['period'],
+            data : [['7 days'],['30 days'],['90 days']]
+        });  
+
         return [
+        {
+            name: 'period',
+            xtype: 'combo',
+            store : periodStore,
+            valueField : 'period',
+            displayField : 'period',
+            queryMode : 'local',
+            forceSelection : true,
+            boxLabelAlign: 'after',
+            fieldLabel: 'Period',
+            margin: '0 0 15 50',
+            labelStyle : "width:200px;",
+            afterLabelTpl: 'View updates in the last number of days'
+        },
         {
             name: 'type',
             xtype:'rallycombobox',
             displayField: 'DisplayName',
             fieldLabel: 'Artifact Type',
-            afterLabelTpl: 'Rally data type for which cycle time is being calculated<br/><span style="color:#999999;">eg.<i>Story</i> <i>Task</i> <i>Defect</i> <i>PortfolioItem/Feature</i></span>',
+            afterLabelTpl: 'Rally data type for which to run the audit report on',
 
             autoExpand: true,
             storeConfig: {
@@ -184,7 +205,6 @@ Ext.define("TSAuditReport", {
                         this.fireEvent('typeSelectedEvent', this.getRecord(),this.modelType);
                 },
                 select: function(field_picker,records) {
-                    console.log("firing type event",this.getRecord());
                     this.fireEvent('typeSelectedEvent', this.getRecord(),this.modelType);
                 }
             },
@@ -193,10 +213,10 @@ Ext.define("TSAuditReport", {
         {
             name: 'field',
             xtype: 'rallyfieldcombobox',
-            fieldLabel: 'Group By',
+            fieldLabel: 'Field',
             margin: '0 0 15 50',
             labelStyle : "width:200px;",
-            afterLabelTpl: 'The Rally field used for state<br/><span style="color:#999999;">eg. <i>ScheduleState State</i></span>',
+            afterLabelTpl: 'The Rally field to report changes on.',
 
             labelAlign: 'left',
             minWidth: 200,
@@ -205,28 +225,13 @@ Ext.define("TSAuditReport", {
             alwaysExpanded: false,
             handlesEvents: { 
                 select: function(type_picker) {
-                    console.log("type_picker.getValue()",type_picker.getValue());
                     this.modelType = type_picker.getValue();
                     this.refreshWithNewModelType(type_picker.getValue());
                 },
                 ready: function(type_picker){
                     this.refreshWithNewModelType(type_picker.getValue());
                 }
-            },
-            listeners: {
-                ready: function(field_box,records) {
-                    // me._filterOutExceptChoices(field_box.getStore());
-                    console.log("field combo ready:",this.getRecord());
-                    // if (this.getRecord()!==false)
-                    //     this.fireEvent('myspecialevent1', this.getRecord(),this.modelType);
-                },
-                // select: function(field_picker,records) {
-                //     console.log("firing event",field_picker,records);
-                //     this.fireEvent('myspecialevent1', _.first(records),this.modelType);
-                // }
-            },
-            // bubbleEvents: ['myspecialevent1'],
-            readyEvent: 'ready'
+            }
         },
 
         ];
@@ -316,10 +321,20 @@ Ext.define("TSAuditReport", {
         return store;
     },
     _getHistory: function(model_name){
-        console.log("Type:",this.getSetting('type'));
-        console.log("Field:",this.getSetting('field'));
+        var me = this;
+        me.logger.log("Type:",this.getSetting('type'));
+        me.logger.log("Field:",this.getSetting('field'));
+
         var type = this.getSetting('type');
         var field = this.getSetting('field');
+
+        // calculate period date.
+        // ['7 days'],['30 days'],['90 days']
+        var d = new Date();
+        var days = parseInt(_.first( this.getSetting('period').split(" ")));
+        d.setDate(d.getDate()-days);
+        me.logger.log("from date:",d.toLocaleString());
+        this.fromDate = d.toLocaleString();
 
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -331,7 +346,8 @@ Ext.define("TSAuditReport", {
                 {property: '_ProjectHierarchy', value: me.getContext().getProject().ObjectID },
                 //{ property: "ObjectID", value: 17142502091 },
                 // { property: "_PreviousValues.ScheduleState", operator: "exists", value: true }
-                { property: "_PreviousValues." + field, operator: "exists", value: true }
+                { property: "_PreviousValues." + field, operator: "exists", value: true },
+                { property: "_ValidFrom", operator: ">", value:  Rally.util.DateTime.toIsoString(d, false)}
             ],
             // fetch: ['_User','ScheduleState','_PreviousValues.ScheduleState','ObjectID','FormattedID','Name'],
             fetch: ['_User',field,'_PreviousValues.'+field,'ObjectID','FormattedID','Name'],
@@ -357,7 +373,7 @@ Ext.define("TSAuditReport", {
 
         var columns = [
             { dataIndex: 'FormattedID', text: 'id' },
-            { dataIndex: 'Name', text: 'id', flex: 1 },
+            { dataIndex: 'Name', text: 'name', flex: 1 },
             // { dataIndex: '_PreviousValues.ScheduleState', text: 'From State', renderer: function(value) {
             { dataIndex: '_PreviousValues.'+field, text: 'From State', renderer: function(value) {
                 if ( !value ) {
@@ -386,11 +402,12 @@ Ext.define("TSAuditReport", {
                 return Ext.util.Format.date(display_value, 'Y-m-d');
             } }
         ];
-        
+
         this.down('#display_box').add({
             xtype: 'rallygrid',
             store: store,
-            columnCfgs: columns
+            columnCfgs: columns,
+            title : "Updates since " + this.fromDate
         });
         
         this.setLoading(false);
