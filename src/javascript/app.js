@@ -228,6 +228,7 @@ Ext.define("TSAuditReport", {
         return deferred.promise;
     },
     _displayGrid: function(store){
+
         var type = this.getSetting('type');
         var field = this.getSetting('field');
 
@@ -263,11 +264,16 @@ Ext.define("TSAuditReport", {
             } }
         ];
 
+        var message = "Updates to " + 
+            (type.toLowerCase() == "hierarchicalrequirement" ? "Story" : type) + " '" +
+            field + "' field since " + this.fromDate;
+        this.logger.log(message);
+
         this.down('#display_box').add({
             xtype: 'rallygrid',
             store: store,
             columnCfgs: columns,
-            title : "Updates since " + this.fromDate
+            title : message
         });
         
         this.setLoading(false);
