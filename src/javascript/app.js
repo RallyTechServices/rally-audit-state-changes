@@ -128,6 +128,11 @@ Ext.define("TSAuditReport", {
         var deferred = Ext.create('Deft.Deferred');
         var users_to_check = [];
         var me = this;
+
+        if (records.length==0) {
+            deferred.resolve([]);
+            return deferred.promise;
+        }
         
         Ext.Array.each(records, function(record) {
             var user = record.get('_User');
@@ -143,6 +148,8 @@ Ext.define("TSAuditReport", {
         
         this.logger.log('Users to Check: ', users_to_check);
         this.logger.log('Filter: ', user_filter);
+
+
         
         Ext.create('Rally.data.wsapi.Store',{
             model: 'User',
@@ -198,6 +205,16 @@ Ext.define("TSAuditReport", {
 
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
+
+        var filters = [{property: '_TypeHierarchy', operator: 'in', value: [type]},
+                {property: '_ProjectHierarchy', value: me.getContext().getProject().ObjectID },
+                //{ property: "ObjectID", value: 17142502091 },
+                // { property: "_PreviousValues.ScheduleState", operator: "exists", value: true }
+                { property: "_PreviousValues." + field, operator: "exists", value: true },
+                { property: "_ValidFrom", operator: ">", value:  Rally.util.DateTime.toIsoString(d, false)}];
+
+                console.log("filters",filters);
+
           
         Ext.create('Rally.data.lookback.SnapshotStore', {
             filters: [
