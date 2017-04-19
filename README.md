@@ -1,5 +1,9 @@
 #Audit Report
 
+![Screenshot 1](https://raw.githubusercontent.com/wrackzone/rally-audit-state-changes/master/audit-report-1.png)
+
+![Screenshot 2](https://raw.githubusercontent.com/wrackzone/rally-audit-state-changes/master/audit-report-2.png)
+
 ## Development Notes
 
 * limited to current project and children
